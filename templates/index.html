@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Financial Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        .metric-card {
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px;
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chart-container {
+            height: 400px;
+            margin: 20px 0;
+        }
+        .metric-summary {
+            margin-bottom: 10px;
+        }
+        .company-search {
+            position: relative;
+        }
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+        .search-result-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        .search-result-item:hover {
+            background-color: #f5f5f5;
+        }
+        .loading-spinner {
+            display: none;
+            margin-left: 10px;
+        }
+        #companyDescription {
+            white-space: pre-line;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">Company Financial Analysis</span>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="company-search">
+                    <div class="input-group mb-3">
+                        <input type="text" id="companySearch" class="form-control" placeholder="Search for a company (e.g., Apple, AAPL, Tesla, TSLA)">
+                        <div class="input-group-append">
+                            <span class="input-group-text loading-spinner">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="search-results" id="searchResults"></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="language-select">
+                    <option value="en">English</option>
+                    <option value="ko">한국어</option>
+                    <option value="ja">日本語</option>
+                    <option value="zh-cn">简体中文</option>
+                    <option value="zh-tw">繁體中文</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="analysisContainer" class="mt-4" style="display: none;">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="card-title mb-3">Company Overview</h4>
+                            <p id="companyDescription" class="card-text"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="metric-card">
+                        <h5>Profit Margin</h5>
+                        <h3 id="profitMargin"></h3>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card">
+                        <h5>P/E Ratio</h5>
+                        <h3 id="peRatio"></h3>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card">
+                        <h5>Market Cap</h5>
+                        <h3 id="marketCap"></h3>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card">
+                        <h5>Revenue Growth</h5>
+                        <h3 id="revenueGrowth"></h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="card-title">Company Analysis Summary</h4>
+                            <div class="alert alert-info" id="overallSummary"></div>
+                            <h5>Key Insights:</h5>
+                            <ul id="insights" class="list-group list-group-flush mb-3"></ul>
+                            <h5>Performance Metrics:</h5>
+                            <div class="row" id="metricsSummary">
+                                <div class="col-md-4">
+                                    <div class="metric-summary">
+                                        <strong>Profit Margin:</strong> <span id="profitMarginSummary"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="metric-summary">
+                                        <strong>Revenue Growth:</strong> <span id="revenueGrowthSummary"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="metric-summary">
+                                        <strong>Operating Margin:</strong> <span id="operatingMarginSummary"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="metric-summary">
+                                        <strong>Return on Equity:</strong> <span id="roeSummary"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="metric-summary">
+                                        <strong>Stock Performance:</strong> <span id="stockPerformanceSummary"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="metric-summary">
+                                        <strong>Dividend Yield:</strong> <span id="dividendYieldSummary"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="chart-container" id="stockChart"></div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-12">
+                    <h4>Financial Details</h4>
+                    <div id="financialDetails" class="table-responsive"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            const searchInput = $('#companySearch');
+            const searchResults = $('#searchResults');
+            const loadingSpinner = $('.loading-spinner');
+            let currentLanguage = 'en';
+            let currentSymbol = '';  // Store the current symbol
+            let chartData = null;    // Store the chart data
+
+            function showLoading() {
+                loadingSpinner.show();
+            }
+
+            function hideLoading() {
+                loadingSpinner.hide();
+            }
+
+            // Language selection change handler
+            $('#language-select').change(function() {
+                currentLanguage = $(this).val();
+                if (currentSymbol) {
+                    analyzeCompany(currentSymbol);
+                }
+            });
+
+            function displayCompanyInfo(data) {
+                // Store chart data
+                chartData = data.stock_history;
+
+                // Update company description
+                $('#companyDescription').text(data.company_data['Company Description']);
+                
+                // Update metrics
+                $('#profitMargin').text(data.company_data['Profit Margin']);
+                $('#peRatio').text(data.company_data['Trailing P/E'] === 'N/A' ? 'N/A' : parseFloat(data.company_data['Trailing P/E']).toFixed(2));
+                $('#marketCap').text(data.company_data['Market Cap']);
+                $('#revenueGrowth').text(data.company_data['Quarterly Revenue Growth  (yoy)']);
+
+                // Update summary section
+                $('#overallSummary').text(data.summary);
+                
+                // Update insights if available
+                const insightsList = $('#insights');
+                insightsList.empty();
+                if (data.summary.insights) {
+                    data.summary.insights.forEach(insight => {
+                        insightsList.append(`<li class="list-group-item">${insight}</li>`);
+                    });
+                }
+
+                // Create stock price chart
+                if (chartData && chartData.length > 0) {
+                    const dates = chartData.map(item => item.Date);
+                    const prices = chartData.map(item => item.Close);
+
+                    const trace = {
+                        x: dates,
+                        y: prices,
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: data.company_data.name || currentSymbol
+                    };
+
+                    const layout = {
+                        title: {
+                            text: `${data.company_data.name || currentSymbol} ${currentLanguage === 'ko' ? '주가 기록' : 'Stock Price History'}`,
+                            font: { size: 18 }
+                        },
+                        xaxis: { 
+                            title: currentLanguage === 'ko' ? '날짜' : 'Date',
+                            tickformat: '%Y-%m-%d'
+                        },
+                        yaxis: { 
+                            title: currentLanguage === 'ko' ? '가격 ($)' : 'Price ($)',
+                            tickprefix: '$'
+                        },
+                        hovermode: 'x unified',
+                        showlegend: true
+                    };
+
+                    const config = {
+                        responsive: true,
+                        displayModeBar: true,
+                        displaylogo: false,
+                        modeBarButtonsToRemove: ['lasso2d', 'select2d']
+                    };
+
+                    Plotly.newPlot('stockChart', [trace], layout, config);
+                } else {
+                    $('#stockChart').html(`<div class="alert alert-warning">${currentLanguage === 'ko' ? '차트 데이터를 사용할 수 없습니다' : 'Chart data not available'}</div>`);
+                }
+
+                // Create financial details table
+                let tableHtml = '<table class="table table-striped">';
+                tableHtml += `<thead><tr><th>${currentLanguage === 'ko' ? '지표' : 'Metric'}</th><th>${currentLanguage === 'ko' ? '값' : 'Value'}</th></tr></thead><tbody>`;
+                
+                Object.entries(data.company_data).forEach(([key, value]) => {
+                    if (key !== 'Company Description') {  // Skip description as it's shown above
+                        tableHtml += `<tr><td>${key}</td><td>${value}</td></tr>`;
+                    }
+                });
+                
+                tableHtml += '</tbody></table>';
+                $('#financialDetails').html(tableHtml);
+            }
+
+            function analyzeCompany(symbol) {
+                if (!symbol) return;
+
+                showLoading();
+                $('#analysisContainer').hide();
+                $('#company-info').empty();
+
+                $.get(`/api/analyze/${symbol}?lang=${currentLanguage}`)
+                    .done(function(data) {
+                        if (data.error) {
+                            $('#company-info').html(`<div class="alert alert-danger">${data.error}</div>`);
+                            hideLoading();
+                            return;
+                        }
+
+                        $('#analysisContainer').show();
+                        displayCompanyInfo(data);
+                        hideLoading();
+                    })
+                    .fail(function(jqXHR, textStatus, errorThrown) {
+                        const errorMessage = currentLanguage === 'ko' ? 
+                            '데이터를 가져오는 중 오류가 발생했습니다' : 
+                            'Error fetching data';
+                        $('#company-info').html(`<div class="alert alert-danger">${errorMessage}: ${errorThrown}</div>`);
+                        hideLoading();
+                    });
+            }
+
+            // Search input handler
+            searchInput.on('input', function() {
+                const query = $(this).val().trim();
+                if (query.length < 2) {
+                    searchResults.empty();
+                    return;
+                }
+
+                $.get(`/api/search?q=${encodeURIComponent(query)}`, function(data) {
+                    searchResults.empty();
+                    if (data.length > 0) {
+                        data.forEach(company => {
+                            const resultItem = $('<div>')
+                                .addClass('search-result-item')
+                                .html(`<strong>${company.symbol}</strong> - ${company.name} (${company.exchange})`)
+                                .click(function() {
+                                    currentSymbol = company.symbol;  // Store the selected symbol
+                                    searchInput.val(company.symbol);
+                                    searchResults.empty();
+                                    analyzeCompany(company.symbol);
+                                });
+                            searchResults.append(resultItem);
+                        });
+                        searchResults.show();
+                    } else {
+                        searchResults.hide();
+                    }
+                });
+            });
+
+            // Handle Enter key
+            searchInput.keypress(function(e) {
+                if (e.which == 13) {
+                    const symbol = $(this).val().trim();
+                    if (symbol) {
+                        currentSymbol = symbol;  // Store the searched symbol
+                        analyzeCompany(symbol);
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
