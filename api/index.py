@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import yfinance as yf
 from googletrans import Translator
-import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 from functools import lru_cache
 import time
@@ -17,118 +17,103 @@ def translate_text(text, dest_lang='en'):
     if not text or dest_lang == 'en':
         return text
     try:
-        # Add delay to avoid rate limits
         time.sleep(0.5)
         return translator.translate(text, dest=dest_lang).text
-    except Exception as e:
-        print(f"Translation error: {e}")
+    except:
         return text
 
-@app.route('/api/search')
+@app.route('/api/search', methods=['GET'])
 def search_company():
     query = request.args.get('query', '')
     lang = request.args.get('lang', 'en')
     
     if not query:
-        return jsonify([])
+        return jsonify({'error': 'No query provided'}), 400
     
     try:
-        # Add delay between requests
-        time.sleep(1)
-        companies = yf.Tickers(query).tickers
-        results = []
+        ticker = yf.Ticker(query)
+        info = ticker.info
         
-        for symbol, company in companies.items():
-            try:
-                info = company.info
-                if info:
-                    name = info.get('longName', '') or info.get('shortName', '')
-                    if lang != 'en':
-                        name = translate_text(name, lang)
-                    results.append({
-                        'symbol': symbol,
-                        'name': name
-                    })
-            except Exception as e:
-                print(f"Error processing company {symbol}: {e}")
-                continue
+        if not info:
+            return jsonify({'error': 'Company not found'}), 404
+            
+        history = ticker.history(period='1y')
+        if not history.empty:
+            prices = history['Close'].tolist()
+            dates = history.index.strftime('%Y-%m-%d').tolist()
+        else:
+            prices = []
+            dates = []
+            
+        analysis = generate_analysis_summary(info, history, lang)
         
-        return jsonify(results[:5])
+        return jsonify({
+            'symbol': query.upper(),
+            'name': info.get('longName', ''),
+            'description': translate_text(info.get('longBusinessSummary', ''), lang),
+            'prices': prices,
+            'dates': dates,
+            'analysis': analysis
+        })
+        
     except Exception as e:
-        error_msg = str(e)
-        if "resource_exhausted" in error_msg.lower():
-            return jsonify({
-                'error': 'Service is temporarily unavailable due to high demand. Please try again in a few minutes.'
-            }), 429
-        return jsonify({'error': error_msg}), 500
+        return jsonify({'error': str(e)}), 500
 
-@app.route('/api/analyze/<symbol>')
-def analyze_company(symbol):
+@app.route('/api/analyze', methods=['GET'])
+def analyze_company():
+    symbol = request.args.get('symbol', '')
     lang = request.args.get('lang', 'en')
     
+    if not symbol:
+        return jsonify({'error': 'No symbol provided'}), 400
+        
     try:
         ticker = yf.Ticker(symbol)
         info = ticker.info
         
-        # Get historical data
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=365)
-        history = ticker.history(start=start_date, end=end_date)
-        
-        # Process company data
-        company_data = {
-            'Company Description': translate_text(info.get('longBusinessSummary', ''), lang),
-            'Market Cap': info.get('marketCap', 'N/A'),
-            'Profit Margin': f"{info.get('profitMargins', 0) * 100:.2f}%",
-            'Revenue Growth': f"{info.get('revenueGrowth', 0) * 100:.2f}%",
-            'Operating Margin': f"{info.get('operatingMargins', 0) * 100:.2f}%",
-            'Trailing P/E': info.get('trailingPE', 'N/A'),
-            'Forward P/E': info.get('forwardPE', 'N/A'),
-            'Dividend Yield': f"{info.get('dividendYield', 0) * 100:.2f}%" if info.get('dividendYield') else 'N/A'
-        }
-        
-        # Process historical data
-        history_data = []
-        for date, row in history.iterrows():
-            history_data.append({
-                'Date': date.strftime('%Y-%m-%d'),
-                'Close': row['Close']
-            })
-        
-        # Generate analysis summary
-        summary = generate_analysis_summary(info, history, lang)
+        if not info:
+            return jsonify({'error': 'Company not found'}), 404
+            
+        history = ticker.history(period='1y')
+        analysis = generate_analysis_summary(info, history, lang)
         
         return jsonify({
-            'company_data': company_data,
-            'stock_history': history_data,
-            'summary': summary
+            'analysis': analysis
         })
-    
+        
     except Exception as e:
-        error_message = str(e)
-        if lang != 'en':
-            error_message = translate_text(error_message, lang)
-        return jsonify({'error': error_message}), 500
+        return jsonify({'error': str(e)}), 500
 
-def generate_analysis_summary(info, history, lang):
-    try:
-        # Calculate basic metrics
-        current_price = history['Close'][-1]
-        price_change = ((current_price - history['Close'][0]) / history['Close'][0]) * 100
+def generate_analysis_summary(info, history, lang='en'):
+    if history.empty:
+        return translate_text("Insufficient data for analysis", lang)
         
-        summary = f"{'Company shows ' if lang == 'en' else ''}"
-        
-        # Analyze price trend
-        if price_change > 0:
-            trend = f"positive growth of {price_change:.1f}%" if lang == 'en' else f"{price_change:.1f}% 상승"
-        else:
-            trend = f"decline of {abs(price_change):.1f}%" if lang == 'en' else f"{abs(price_change):.1f}% 하락"
-        
-        summary += trend
-        
-        return translate_text(summary, lang)
-    except:
-        return translate_text("Unable to generate analysis summary", lang)
+    current_price = history['Close'][-1]
+    year_high = np.max(history['High'])
+    year_low = np.min(history['Low'])
+    
+    pe_ratio = info.get('forwardPE', 0)
+    profit_margins = info.get('profitMargins', 0)
+    
+    analysis = []
+    
+    if pe_ratio > 0:
+        if pe_ratio < 15:
+            analysis.append("The stock appears to be potentially undervalued based on its P/E ratio.")
+        elif pe_ratio > 30:
+            analysis.append("The stock appears to be potentially overvalued based on its P/E ratio.")
+            
+    if profit_margins:
+        if profit_margins > 0.2:
+            analysis.append("The company shows strong profit margins above 20%.")
+        elif profit_margins < 0:
+            analysis.append("The company is currently operating at a loss.")
+            
+    price_range = f"The stock has traded between ${year_low:.2f} and ${year_high:.2f} over the past year."
+    analysis.append(price_range)
+    
+    summary = " ".join(analysis)
+    return translate_text(summary, lang)
 
 if __name__ == '__main__':
     app.run(debug=True)
