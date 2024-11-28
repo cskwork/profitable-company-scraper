@@ -4,17 +4,24 @@ import yfinance as yf
 from googletrans import Translator
 import pandas as pd
 from datetime import datetime, timedelta
+from functools import lru_cache
+import time
 
 app = Flask(__name__)
 CORS(app)
 translator = Translator()
 
+# Add caching to reduce API calls
+@lru_cache(maxsize=100)
 def translate_text(text, dest_lang='en'):
     if not text or dest_lang == 'en':
         return text
     try:
+        # Add delay to avoid rate limits
+        time.sleep(0.5)
         return translator.translate(text, dest=dest_lang).text
-    except:
+    except Exception as e:
+        print(f"Translation error: {e}")
         return text
 
 @app.route('/api/search')
@@ -26,24 +33,34 @@ def search_company():
         return jsonify([])
     
     try:
-        # Use yfinance to search for companies
+        # Add delay between requests
+        time.sleep(1)
         companies = yf.Tickers(query).tickers
         results = []
         
         for symbol, company in companies.items():
-            info = company.info
-            if info:
-                name = info.get('longName', '') or info.get('shortName', '')
-                if lang != 'en':
-                    name = translate_text(name, lang)
-                results.append({
-                    'symbol': symbol,
-                    'name': name
-                })
+            try:
+                info = company.info
+                if info:
+                    name = info.get('longName', '') or info.get('shortName', '')
+                    if lang != 'en':
+                        name = translate_text(name, lang)
+                    results.append({
+                        'symbol': symbol,
+                        'name': name
+                    })
+            except Exception as e:
+                print(f"Error processing company {symbol}: {e}")
+                continue
         
-        return jsonify(results[:5])  # Limit to top 5 results
+        return jsonify(results[:5])
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        error_msg = str(e)
+        if "resource_exhausted" in error_msg.lower():
+            return jsonify({
+                'error': 'Service is temporarily unavailable due to high demand. Please try again in a few minutes.'
+            }), 429
+        return jsonify({'error': error_msg}), 500
 
 @app.route('/api/analyze/<symbol>')
 def analyze_company(symbol):
