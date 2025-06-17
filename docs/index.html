@@ -1,375 +1,629 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Company Financial Analysis</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>회사 정보 검색/분석 샘플 클라이언트</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <style>
-        .metric-card {
-            border-radius: 10px;
-            padding: 20px;
-            margin: 10px;
-            background-color: #f8f9fa;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .chart-container {
-            height: 400px;
-            margin: 20px 0;
-        }
-        .metric-summary {
-            margin-bottom: 10px;
-        }
-        .company-search {
-            position: relative;
-        }
-        .search-results {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            max-height: 300px;
-            overflow-y: auto;
-            z-index: 1000;
-            display: none;
-        }
-        .search-result-item {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-        }
-        .search-result-item:hover {
-            background-color: #f5f5f5;
-        }
-        .loading-spinner {
-            display: none;
-            margin-left: 10px;
-        }
-        #companyDescription {
-            white-space: pre-line;
-        }
+      body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: #f8f9fa;
+        margin: 0;
+        padding: 0;
+      }
+      #app {
+        max-width: 700px;
+        margin: 40px auto;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px #0001;
+        padding: 32px;
+      }
+      h1 {
+        color: #2c3e50;
+      }
+      input,
+      select,
+      button {
+        font-size: 1rem;
+        padding: 8px;
+        margin: 4px 0;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+      button {
+        background: #2c3e50;
+        color: #fff;
+        cursor: pointer;
+      }
+      button:disabled {
+        background: #aaa;
+      }
+      .result,
+      .error {
+        margin-top: 20px;
+      }
+      .error {
+        color: #e74c3c;
+      }
+      .card {
+        background: #f4f6f8;
+        border-radius: 6px;
+        padding: 16px;
+        margin-bottom: 12px;
+      }
+      .label {
+        font-weight: bold;
+        color: #34495e;
+      }
+      .metric-card {
+        border-radius: 10px;
+        padding: 20px;
+        margin: 10px;
+        background-color: #f8f9fa;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .chart-container {
+        height: 400px;
+        margin: 20px 0;
+      }
+      .metric-summary {
+        margin-bottom: 10px;
+      }
+      .company-search {
+        position: relative;
+      }
+      .search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+      }
+      .search-result-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+      }
+      .search-result-item:hover {
+        background-color: #f5f5f5;
+      }
+      .loading-spinner {
+        display: none;
+        margin-left: 10px;
+      }
+      #companyDescription {
+        white-space: pre-line;
+      }
     </style>
-</head>
-<body>
-    <nav class="navbar navbar-dark bg-dark">
-        <div class="container">
-            <span class="navbar-brand mb-0 h1">Company Financial Analysis</span>
+  </head>
+  <body>
+    <div id="app">
+      <h1>회사 정보 검색/분석</h1>
+      <!-- 검색 폼 -->
+      <form @submit.prevent="searchCompanies">
+        <label
+          >검색어(회사명/심볼):
+          <input
+            v-model="query"
+            required
+            placeholder="예: Apple, 삼성전자, AAPL"
+          />
+        </label>
+        <label
+          >언어:
+          <select v-model="lang">
+            <option value="en">영어</option>
+            <option value="ko">한국어</option>
+            <option value="ja">일본어</option>
+            <option value="zh-cn">중국어(간체)</option>
+          </select>
+        </label>
+        <button :disabled="loading">검색</button>
+      </form>
+
+      <!-- 에러 메시지 -->
+      <div v-if="error" class="error">{{ error }}</div>
+
+      <!-- 검색 결과 -->
+      <div v-if="results.length" class="result">
+        <h2>검색 결과</h2>
+        <form @submit.prevent="compareSelected">
+          <div
+            v-for="company in results"
+            :key="company.symbol"
+            class="card"
+            style="display: flex; align-items: center"
+          >
+            <input
+              type="checkbox"
+              v-model="selectedSymbols"
+              :value="company.symbol"
+              style="margin-right: 10px"
+            />
+            <div style="flex: 1">
+              <div><span class="label">심볼:</span> {{ company.symbol }}</div>
+              <div><span class="label">이름:</span> {{ company.name }}</div>
+              <div>
+                <span class="label">시가총액:</span> {{ company.marketCap }}
+              </div>
+              <div>
+                <span class="label">PER(전년):</span> {{ company.trailingPE }}
+              </div>
+              <div>
+                <span class="label">PER(예상):</span> {{ company.forwardPE }}
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              @click="analyzeCompany(company.symbol)"
+            >
+              상세 분석
+            </button>
+          </div>
+          <button
+            type="submit"
+            class="btn btn-primary mt-2"
+            :disabled="selectedSymbols.length < 2"
+          >
+            비교하기
+          </button>
+        </form>
+      </div>
+
+      <!-- 멀티 기업 비교 차트 -->
+      <div v-if="compareResults.length" class="result">
+        <h2>주요 지표 비교</h2>
+        <div id="multi-bar-chart" class="chart-container"></div>
+        <!-- 비교 결과 표 -->
+        <div class="table-responsive mt-3">
+          <table class="table table-bordered table-sm">
+            <thead>
+              <tr>
+                <th>심볼</th>
+                <th>이름</th>
+                <th>시가총액</th>
+                <th>PER(전년)</th>
+                <th>PER(예상)</th>
+                <th>이익률</th>
+                <th>영업이익률</th>
+                <th>매출성장률</th>
+                <th>배당수익률</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in compareResults" :key="row.symbol">
+                <td>{{ row.symbol }}</td>
+                <td>{{ row.name }}</td>
+                <td>{{ row['Market Cap'] }}</td>
+                <td>{{ row['Trailing P/E'] }}</td>
+                <td>{{ row['Forward P/E'] }}</td>
+                <td>{{ row['Profit Margin'] }}</td>
+                <td>{{ row['Operating Margin'] }}</td>
+                <td>{{ row['Revenue Growth'] }}</td>
+                <td>{{ row['Dividend Yield'] }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-    </nav>
+        <button
+          class="btn btn-outline-success btn-sm"
+          @click="downloadCompareCSV"
+        >
+          CSV 다운로드
+        </button>
+      </div>
 
-    <div class="container mt-4">
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="company-search">
-                    <div class="input-group mb-3">
-                        <input type="text" id="companySearch" class="form-control" placeholder="Search for a company (e.g., Apple, AAPL, Tesla, TSLA)">
-                        <div class="input-group-append">
-                            <span class="input-group-text loading-spinner">
-                                <div class="spinner-border spinner-border-sm" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                            </span>
-                        </div>
-                    </div>
-                    <div class="search-results" id="searchResults"></div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <select class="form-select" id="language-select">
-                    <option value="en">English</option>
-                    <option value="ko">한국어</option>
-                    <option value="ja">日本語</option>
-                    <option value="zh-cn">简体中文</option>
-                    <option value="zh-tw">繁體中文</option>
-                    <option value="es">Español</option>
-                    <option value="fr">Français</option>
-                    <option value="de">Deutsch</option>
-                </select>
-            </div>
+      <!-- 분석 결과 -->
+      <div v-if="analysis" class="result">
+        <h2>상세 분석</h2>
+        <!-- 기간 선택 버튼 -->
+        <div style="margin-bottom: 12px">
+          <span class="label">기간 선택:</span>
+          <button
+            v-for="p in periods"
+            :key="p.value"
+            :class="['btn', 'btn-sm', period === p.value ? 'btn-primary' : 'btn-outline-primary']"
+            style="margin-right: 4px"
+            @click="changePeriod(p.value)"
+          >
+            {{ p.label }}
+          </button>
         </div>
-
-        <div id="analysisContainer" class="mt-4" style="display: none;">
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h4 class="card-title mb-3">Company Overview</h4>
-                            <p id="companyDescription" class="card-text"></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-3">
-                    <div class="metric-card">
-                        <h5>Profit Margin</h5>
-                        <h3 id="profitMargin"></h3>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="metric-card">
-                        <h5>P/E Ratio</h5>
-                        <h3 id="peRatio"></h3>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="metric-card">
-                        <h5>Market Cap</h5>
-                        <h3 id="marketCap"></h3>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="metric-card">
-                        <h5>Revenue Growth</h5>
-                        <h3 id="revenueGrowth"></h3>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h4 class="card-title">Company Analysis Summary</h4>
-                            <div class="alert alert-info" id="overallSummary"></div>
-                            <h5>Key Insights:</h5>
-                            <ul id="insights" class="list-group list-group-flush mb-3"></ul>
-                            <h5>Performance Metrics:</h5>
-                            <div class="row" id="metricsSummary">
-                                <div class="col-md-4">
-                                    <div class="metric-summary">
-                                        <strong>Profit Margin:</strong> <span id="profitMarginSummary"></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="metric-summary">
-                                        <strong>Revenue Growth:</strong> <span id="revenueGrowthSummary"></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="metric-summary">
-                                        <strong>Operating Margin:</strong> <span id="operatingMarginSummary"></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="metric-summary">
-                                        <strong>Return on Equity:</strong> <span id="roeSummary"></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="metric-summary">
-                                        <strong>Stock Performance:</strong> <span id="stockPerformanceSummary"></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="metric-summary">
-                                        <strong>Dividend Yield:</strong> <span id="dividendYieldSummary"></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="chart-container" id="stockChart"></div>
-                </div>
-            </div>
-
-            <div class="row mt-4">
-                <div class="col-12">
-                    <h4>Financial Details</h4>
-                    <div id="financialDetails" class="table-responsive"></div>
-                </div>
-            </div>
+        <div class="card">
+          <div
+            v-for="(val, key) in analysis"
+            :key="key"
+            v-if="key !== 'Stock History'"
+          >
+            <span class="label">{{ key }}:</span> {{ val }}
+          </div>
         </div>
+        <!-- 상세 분석 표 -->
+        <div class="table-responsive mt-2">
+          <table class="table table-bordered table-sm">
+            <tbody>
+              <tr
+                v-for="(val, key) in analysis"
+                :key="key"
+                v-if="key !== 'Stock History'"
+              >
+                <th>{{ key }}</th>
+                <td>{{ val }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button
+          class="btn btn-outline-success btn-sm"
+          @click="downloadDetailCSV"
+        >
+          CSV 다운로드
+        </button>
+        <!-- 주가 히스토리 차트 -->
+        <div
+          v-if="analysis['Stock History'] && analysis['Stock History'].length"
+          class="chart-container"
+        >
+          <h3>주가 히스토리 (선택 기간)</h3>
+          <div id="stock-history-chart"></div>
+        </div>
+        <!-- 주요 재무지표 바 차트 -->
+        <div v-if="showFinancialChart" class="chart-container">
+          <h3>주요 재무지표</h3>
+          <div id="financial-bar-chart"></div>
+        </div>
+        <!-- 종합 분석 요약/인사이트 -->
+        <div v-if="insights.length" class="card">
+          <h4>종합 분석 인사이트</h4>
+          <ul>
+            <li v-for="insight in insights" :key="insight">{{ insight }}</li>
+          </ul>
+        </div>
+      </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script>
-        $(document).ready(function() {
-            const searchInput = $('#companySearch');
-            const searchResults = $('#searchResults');
-            const loadingSpinner = $('.loading-spinner');
-            let currentLanguage = 'en';
-            let currentSymbol = '';  // Store the current symbol
-            let chartData = null;    // Store the chart data
+      const { createApp, ref, watch } = Vue;
+      createApp({
+        setup() {
+          // 상태 변수
+          const query = ref("");
+          const lang = ref("ko");
+          const results = ref([]);
+          const analysis = ref(null);
+          const error = ref("");
+          const loading = ref(false);
+          const insights = ref([]);
+          const showFinancialChart = ref(false);
+          const periods = [
+            { label: "1개월", value: "1mo" },
+            { label: "3개월", value: "3mo" },
+            { label: "6개월", value: "6mo" },
+            { label: "1년", value: "1y" },
+            { label: "3년", value: "3y" },
+          ];
+          const period = ref("1y");
+          // 멀티 비교용
+          const selectedSymbols = ref([]);
+          const compareResults = ref([]);
 
-            function showLoading() {
-                loadingSpinner.show();
+          // 회사 검색 함수
+          async function searchCompanies() {
+            error.value = "";
+            analysis.value = null;
+            results.value = [];
+            selectedSymbols.value = [];
+            compareResults.value = [];
+            loading.value = true;
+            try {
+              const res = await fetch(
+                `/api/search?query=${encodeURIComponent(query.value)}&lang=${
+                  lang.value
+                }`
+              );
+              const data = await res.json();
+              if (res.ok && data.data) {
+                results.value = data.data;
+              } else {
+                error.value = data.error || "검색 실패";
+              }
+            } catch (e) {
+              error.value = "네트워크 오류";
+            } finally {
+              loading.value = false;
             }
+          }
 
-            function hideLoading() {
-                loadingSpinner.hide();
+          // 회사 분석 함수
+          async function analyzeCompany(symbol) {
+            error.value = "";
+            analysis.value = null;
+            loading.value = true;
+            try {
+              const res = await fetch(
+                `/api/analyze/${encodeURIComponent(symbol)}?lang=${
+                  lang.value
+                }&period=${period.value}`
+              );
+              const data = await res.json();
+              if (res.ok && data.data) {
+                analysis.value = data.data;
+                insights.value = generateInsights(data.data);
+                setTimeout(() => {
+                  renderStockChart(data.data["Stock History"]);
+                  renderFinancialBarChart(data.data);
+                }, 100);
+              } else {
+                error.value = data.error || "분석 실패";
+              }
+            } catch (e) {
+              error.value = "네트워크 오류";
+            } finally {
+              loading.value = false;
             }
+          }
 
-            // Language selection change handler
-            $('#language-select').change(function() {
-                currentLanguage = $(this).val();
-                if (currentSymbol) {
-                    analyzeCompany(currentSymbol);
-                }
+          // 기간 변경 시 차트 갱신
+          function changePeriod(newPeriod) {
+            if (period.value === newPeriod) return;
+            period.value = newPeriod;
+            if (analysis.value && analysis.value["Company Description"]) {
+              // 마지막 분석된 회사의 심볼을 찾아 재요청
+              const symbol =
+                results.value.find(
+                  (c) =>
+                    c.name === analysis.value["Company Description"] ||
+                    c.symbol === analysis.value["Company Description"]
+                )?.symbol || results.value[0]?.symbol;
+              if (symbol) analyzeCompany(symbol);
+            }
+          }
+
+          // 주가 히스토리 Plotly 차트 렌더링
+          function renderStockChart(stockHistory) {
+            if (!stockHistory || !stockHistory.length) return;
+            const dates = stockHistory.map((item) => item.date);
+            const closes = stockHistory.map((item) => item.close);
+            const trace = {
+              x: dates,
+              y: closes,
+              type: "scatter",
+              mode: "lines+markers",
+              name: "종가",
+            };
+            const layout = {
+              title: "주가 히스토리",
+              xaxis: { title: "날짜" },
+              yaxis: { title: "종가", tickprefix: "₩" },
+              margin: { t: 40, l: 50, r: 20, b: 50 },
+            };
+            Plotly.newPlot("stock-history-chart", [trace], layout, {
+              responsive: true,
             });
+          }
 
-            function displayCompanyInfo(data) {
-                // Store chart data
-                chartData = data.stock_history;
-
-                // Update company description
-                $('#companyDescription').text(data.company_data['Company Description']);
-                
-                // Update metrics
-                $('#profitMargin').text(data.company_data['Profit Margin']);
-                $('#peRatio').text(data.company_data['Trailing P/E'] === 'N/A' ? 'N/A' : parseFloat(data.company_data['Trailing P/E']).toFixed(2));
-                $('#marketCap').text(data.company_data['Market Cap']);
-                $('#revenueGrowth').text(data.company_data['Quarterly Revenue Growth  (yoy)']);
-
-                // Update summary section
-                $('#overallSummary').text(data.summary);
-                
-                // Update insights if available
-                const insightsList = $('#insights');
-                insightsList.empty();
-                if (data.summary.insights) {
-                    data.summary.insights.forEach(insight => {
-                        insightsList.append(`<li class="list-group-item">${insight}</li>`);
-                    });
-                }
-
-                // Create stock price chart
-                if (chartData && chartData.length > 0) {
-                    const dates = chartData.map(item => item.Date);
-                    const prices = chartData.map(item => item.Close);
-
-                    const trace = {
-                        x: dates,
-                        y: prices,
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: data.company_data.name || currentSymbol
-                    };
-
-                    const layout = {
-                        title: {
-                            text: `${data.company_data.name || currentSymbol} ${currentLanguage === 'ko' ? '주가 기록' : 'Stock Price History'}`,
-                            font: { size: 18 }
-                        },
-                        xaxis: { 
-                            title: currentLanguage === 'ko' ? '날짜' : 'Date',
-                            tickformat: '%Y-%m-%d'
-                        },
-                        yaxis: { 
-                            title: currentLanguage === 'ko' ? '가격 ($)' : 'Price ($)',
-                            tickprefix: '$'
-                        },
-                        hovermode: 'x unified',
-                        showlegend: true
-                    };
-
-                    const config = {
-                        responsive: true,
-                        displayModeBar: true,
-                        displaylogo: false,
-                        modeBarButtonsToRemove: ['lasso2d', 'select2d']
-                    };
-
-                    Plotly.newPlot('stockChart', [trace], layout, config);
-                } else {
-                    $('#stockChart').html(`<div class="alert alert-warning">${currentLanguage === 'ko' ? '차트 데이터를 사용할 수 없습니다' : 'Chart data not available'}</div>`);
-                }
-
-                // Create financial details table
-                let tableHtml = '<table class="table table-striped">';
-                tableHtml += `<thead><tr><th>${currentLanguage === 'ko' ? '지표' : 'Metric'}</th><th>${currentLanguage === 'ko' ? '값' : 'Value'}</th></tr></thead><tbody>`;
-                
-                Object.entries(data.company_data).forEach(([key, value]) => {
-                    if (key !== 'Company Description') {  // Skip description as it's shown above
-                        tableHtml += `<tr><td>${key}</td><td>${value}</td></tr>`;
-                    }
-                });
-                
-                tableHtml += '</tbody></table>';
-                $('#financialDetails').html(tableHtml);
-            }
-
-            function analyzeCompany(symbol) {
-                if (!symbol) return;
-
-                showLoading();
-                $('#analysisContainer').hide();
-                $('#company-info').empty();
-
-                $.get(`/api/analyze/${symbol}?lang=${currentLanguage}`)
-                    .done(function(data) {
-                        if (data.error) {
-                            $('#company-info').html(`<div class="alert alert-danger">${data.error}</div>`);
-                            hideLoading();
-                            return;
-                        }
-
-                        $('#analysisContainer').show();
-                        displayCompanyInfo(data);
-                        hideLoading();
-                    })
-                    .fail(function(jqXHR, textStatus, errorThrown) {
-                        const errorMessage = currentLanguage === 'ko' ? 
-                            '데이터를 가져오는 중 오류가 발생했습니다' : 
-                            'Error fetching data';
-                        $('#company-info').html(`<div class="alert alert-danger">${errorMessage}: ${errorThrown}</div>`);
-                        hideLoading();
-                    });
-            }
-
-            // Search input handler
-            searchInput.on('input', function() {
-                const query = $(this).val().trim();
-                if (query.length < 2) {
-                    searchResults.empty();
-                    return;
-                }
-
-                $.get(`/api/search?q=${encodeURIComponent(query)}`, function(data) {
-                    searchResults.empty();
-                    if (data.length > 0) {
-                        data.forEach(company => {
-                            const resultItem = $('<div>')
-                                .addClass('search-result-item')
-                                .html(`<strong>${company.symbol}</strong> - ${company.name} (${company.exchange})`)
-                                .click(function() {
-                                    currentSymbol = company.symbol;  // Store the selected symbol
-                                    searchInput.val(company.symbol);
-                                    searchResults.empty();
-                                    analyzeCompany(company.symbol);
-                                });
-                            searchResults.append(resultItem);
-                        });
-                        searchResults.show();
-                    } else {
-                        searchResults.hide();
-                    }
-                });
+          // 주요 재무지표 바 차트 렌더링
+          function renderFinancialBarChart(data) {
+            const labels = [
+              "Market Cap",
+              "Trailing P/E",
+              "Forward P/E",
+              "Profit Margin",
+              "Operating Margin",
+              "Revenue Growth",
+              "Dividend Yield",
+            ];
+            const values = labels.map((key) => {
+              let v = data[key];
+              if (typeof v === "string" && v.endsWith("%")) v = parseFloat(v);
+              if (typeof v === "string" && v !== "N/A") v = parseFloat(v);
+              if (v === "N/A" || isNaN(v)) v = 0;
+              return v;
             });
-
-            // Handle Enter key
-            searchInput.keypress(function(e) {
-                if (e.which == 13) {
-                    const symbol = $(this).val().trim();
-                    if (symbol) {
-                        currentSymbol = symbol;  // Store the searched symbol
-                        analyzeCompany(symbol);
-                    }
-                }
+            showFinancialChart.value = values.some((v) => v !== 0);
+            if (!showFinancialChart.value) return;
+            const trace = {
+              x: labels,
+              y: values,
+              type: "bar",
+              marker: { color: "#2c3e50" },
+            };
+            const layout = {
+              title: "주요 재무지표",
+              yaxis: { title: "값" },
+              margin: { t: 40, l: 50, r: 20, b: 50 },
+            };
+            Plotly.newPlot("financial-bar-chart", [trace], layout, {
+              responsive: true,
             });
-        });
+          }
+
+          // 종합 분석 인사이트 생성 예시
+          function generateInsights(data) {
+            const insights = [];
+            if (
+              data["Profit Margin"] &&
+              parseFloat(data["Profit Margin"]) > 0.2
+            ) {
+              insights.push("이 회사는 높은 이익률을 보이고 있습니다.");
+            }
+            if (
+              data["Revenue Growth"] &&
+              parseFloat(data["Revenue Growth"]) > 0.1
+            ) {
+              insights.push("매출 성장률이 우수합니다.");
+            }
+            if (data["Trailing P/E"] && parseFloat(data["Trailing P/E"]) < 15) {
+              insights.push("PER가 낮아 저평가된 기업일 수 있습니다.");
+            }
+            if (
+              data["Dividend Yield"] &&
+              parseFloat(data["Dividend Yield"]) > 0.03
+            ) {
+              insights.push("배당 수익률이 높아 투자 매력이 있습니다.");
+            }
+            return insights;
+          }
+
+          // 멀티 기업 비교 함수
+          async function compareSelected() {
+            error.value = "";
+            compareResults.value = [];
+            if (selectedSymbols.value.length < 2) return;
+            loading.value = true;
+            try {
+              const res = await fetch("/api/analyze-multi", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  symbols: selectedSymbols.value,
+                  period: period.value,
+                }),
+              });
+              const data = await res.json();
+              if (res.ok && data.data) {
+                compareResults.value = data.data;
+                setTimeout(renderMultiBarChart, 100);
+              } else {
+                error.value = data.error || "비교 실패";
+              }
+            } catch (e) {
+              error.value = "네트워크 오류";
+            } finally {
+              loading.value = false;
+            }
+          }
+
+          // 멀티 바 차트 렌더링
+          function renderMultiBarChart() {
+            if (!compareResults.value.length) return;
+            const metrics = [
+              "Market Cap",
+              "Trailing P/E",
+              "Forward P/E",
+              "Profit Margin",
+              "Operating Margin",
+              "Revenue Growth",
+              "Dividend Yield",
+            ];
+            const symbols = compareResults.value.map((r) => r.symbol);
+            const traces = metrics.map((metric) => ({
+              x: symbols,
+              y: compareResults.value.map((r) => {
+                let v = r[metric];
+                if (typeof v === "string" && v.endsWith("%")) v = parseFloat(v);
+                if (typeof v === "string" && v !== "N/A") v = parseFloat(v);
+                if (v === "N/A" || isNaN(v)) v = 0;
+                return v;
+              }),
+              name: metric,
+              type: "bar",
+            }));
+            const layout = {
+              barmode: "group",
+              title: "기업별 주요 지표 비교",
+              xaxis: { title: "심볼" },
+              yaxis: { title: "값" },
+              margin: { t: 40, l: 50, r: 20, b: 50 },
+            };
+            Plotly.newPlot("multi-bar-chart", traces, layout, {
+              responsive: true,
+            });
+          }
+
+          // CSV 다운로드 함수
+          function downloadCompareCSV() {
+            if (!compareResults.value.length) return;
+            const headers = [
+              "심볼",
+              "이름",
+              "시가총액",
+              "PER(전년)",
+              "PER(예상)",
+              "이익률",
+              "영업이익률",
+              "매출성장률",
+              "배당수익률",
+            ];
+            const keys = [
+              "symbol",
+              "name",
+              "Market Cap",
+              "Trailing P/E",
+              "Forward P/E",
+              "Profit Margin",
+              "Operating Margin",
+              "Revenue Growth",
+              "Dividend Yield",
+            ];
+            let csv = headers.join(",") + "\n";
+            compareResults.value.forEach((row) => {
+              csv += keys.map((k) => row[k] ?? "").join(",") + "\n";
+            });
+            downloadCSV(csv, "compare_results.csv");
+          }
+          function downloadDetailCSV() {
+            if (!analysis.value) return;
+            let csv = "항목,값\n";
+            Object.entries(analysis.value).forEach(([k, v]) => {
+              if (k !== "Stock History") csv += `${k},${v}\n`;
+            });
+            downloadCSV(csv, "analysis_detail.csv");
+          }
+          function downloadCSV(csv, filename) {
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+
+          return {
+            query,
+            lang,
+            results,
+            analysis,
+            error,
+            loading,
+            searchCompanies,
+            analyzeCompany,
+            insights,
+            showFinancialChart,
+            periods,
+            period,
+            changePeriod,
+            selectedSymbols,
+            compareSelected,
+            compareResults,
+            downloadCompareCSV,
+            downloadDetailCSV,
+          };
+        },
+      }).mount("#app");
     </script>
-</body>
+  </body>
 </html>

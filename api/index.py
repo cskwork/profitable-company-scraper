@@ -1,134 +1,319 @@
+"""
+회사 정보 조회 API
+"""
+
+import logging
+
+from flasgger import Swagger
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import yfinance as yf
-from googletrans import Translator
-import pandas as pd
-from datetime import datetime, timedelta
-from functools import lru_cache
-import time
+from services.company_service import CompanyService, CompanyServiceError
+from services.translation_service import (TranslationService,
+                                          TranslationServiceError)
 
 app = Flask(__name__)
 CORS(app)
-translator = Translator()
+Swagger(app)
 
-# Add caching to reduce API calls
-@lru_cache(maxsize=100)
-def translate_text(text, dest_lang='en'):
-    if not text or dest_lang == 'en':
-        return text
-    try:
-        # Add delay to avoid rate limits
-        time.sleep(0.5)
-        return translator.translate(text, dest=dest_lang).text
-    except Exception as e:
-        print(f"Translation error: {e}")
-        return text
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
-@app.route('/api/search')
+# 서비스 인스턴스 생성
+company_service = CompanyService()
+translation_service = TranslationService()
+
+
+@app.route("/api/search")
 def search_company():
-    query = request.args.get('query', '')
-    lang = request.args.get('lang', 'en')
-    
+    """
+    회사 검색 API
+    ---
+    parameters:
+      - name: query
+        in: query
+        type: string
+        required: true
+        description: 검색할 회사명 또는 심볼
+      - name: lang
+        in: query
+        type: string
+        required: false
+        default: en
+        description: 결과 언어 코드
+    responses:
+      200:
+        description: 검색 결과 리스트
+        schema:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                type: object
+                properties:
+                  symbol:
+                    type: string
+                  name:
+                    type: string
+                  marketCap:
+                    type: integer
+                  profitMargins:
+                    type: number
+                  revenueGrowth:
+                    type: number
+                  operatingMargins:
+                    type: number
+                  trailingPE:
+                    type: number
+                  forwardPE:
+                    type: number
+                  dividendYield:
+                    type: number
+      400:
+        description: 잘못된 요청
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+      500:
+        description: 서버 오류
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+    """
+    query = request.args.get("query", "")
+    lang = request.args.get("lang", "en")
+
+    logger.info(f"Search request received: query={query}, lang={lang}")
+
     if not query:
-        return jsonify([])
-    
+        logger.warning("Empty query received")
+        return jsonify({"data": []}), 200
+
     try:
-        # Add delay between requests
-        time.sleep(1)
-        companies = yf.Tickers(query).tickers
-        results = []
-        
-        for symbol, company in companies.items():
-            try:
-                info = company.info
-                if info:
-                    name = info.get('longName', '') or info.get('shortName', '')
-                    if lang != 'en':
-                        name = translate_text(name, lang)
-                    results.append({
-                        'symbol': symbol,
-                        'name': name
-                    })
-            except Exception as e:
-                print(f"Error processing company {symbol}: {e}")
-                continue
-        
-        return jsonify(results[:5])
+        results = company_service.search_companies(query)
+        if lang != "en":
+            results = translation_service.translate_dict(results, lang)
+        logger.info(f"Search successful: {len(results)} results found")
+        return jsonify({"data": results}), 200
+    except CompanyServiceError as e:
+        logger.error(f"Company service error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    except TranslationServiceError as e:
+        logger.error(f"Translation service error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
     except Exception as e:
         error_msg = str(e)
+        logger.error(f"Unexpected error: {error_msg}")
         if "resource_exhausted" in error_msg.lower():
-            return jsonify({
-                'error': 'Service is temporarily unavailable due to high demand. Please try again in a few minutes.'
-            }), 429
-        return jsonify({'error': error_msg}), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Service is temporarily unavailable due to high demand. Please try again in a few minutes."
+                    }
+                ),
+                429,
+            )
+        return jsonify({"error": error_msg}), 500
 
-@app.route('/api/analyze/<symbol>')
+
+@app.route("/api/analyze/<symbol>")
 def analyze_company(symbol):
-    lang = request.args.get('lang', 'en')
-    
+    """
+    회사 분석 API
+    ---
+    parameters:
+      - name: symbol
+        in: path
+        type: string
+        required: true
+        description: 분석할 회사 심볼
+      - name: lang
+        in: query
+        type: string
+        required: false
+        default: en
+        description: 결과 언어 코드
+      - name: period
+        in: query
+        type: string
+        required: false
+        default: 1y
+        description: 주가 히스토리 기간(예: 1mo, 3mo, 6mo, 1y, 3y)
+    responses:
+      200:
+        description: 분석 결과
+        schema:
+          type: object
+          properties:
+            data:
+              type: object
+              properties:
+                Company Description:
+                  type: string
+                Market Cap:
+                  type: integer
+                Profit Margin:
+                  type: number
+                Revenue Growth:
+                  type: number
+                Operating Margin:
+                  type: number
+                Trailing P/E:
+                  type: number
+                Forward P/E:
+                  type: number
+                Dividend Yield:
+                  type: number
+                Price Change:
+                  type: number
+                Stock History:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                      close:
+                        type: number
+      400:
+        description: 잘못된 요청
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+      500:
+        description: 서버 오류
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+    """
+    lang = request.args.get("lang", "en")
+    period = request.args.get("period", "1y")
+
+    logger.info(
+        f"Analysis request received: symbol={symbol}, lang={lang}, period={period}"
+    )
+
     try:
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-        
-        # Get historical data
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=365)
-        history = ticker.history(start=start_date, end=end_date)
-        
-        # Process company data
-        company_data = {
-            'Company Description': translate_text(info.get('longBusinessSummary', ''), lang),
-            'Market Cap': info.get('marketCap', 'N/A'),
-            'Profit Margin': f"{info.get('profitMargins', 0) * 100:.2f}%",
-            'Revenue Growth': f"{info.get('revenueGrowth', 0) * 100:.2f}%",
-            'Operating Margin': f"{info.get('operatingMargins', 0) * 100:.2f}%",
-            'Trailing P/E': info.get('trailingPE', 'N/A'),
-            'Forward P/E': info.get('forwardPE', 'N/A'),
-            'Dividend Yield': f"{info.get('dividendYield', 0) * 100:.2f}%" if info.get('dividendYield') else 'N/A'
-        }
-        
-        # Process historical data
-        history_data = []
-        for date, row in history.iterrows():
-            history_data.append({
-                'Date': date.strftime('%Y-%m-%d'),
-                'Close': row['Close']
-            })
-        
-        # Generate analysis summary
-        summary = generate_analysis_summary(info, history, lang)
-        
-        return jsonify({
-            'company_data': company_data,
-            'stock_history': history_data,
-            'summary': summary
-        })
-    
+        analysis = company_service.analyze_company(symbol, period=period)
+        if lang != "en":
+            analysis = translation_service.translate_dict(analysis, lang)
+        logger.info(f"Analysis successful for symbol: {symbol}")
+        return jsonify({"data": analysis}), 200
+    except CompanyServiceError as e:
+        logger.error(f"Company service error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    except TranslationServiceError as e:
+        logger.error(f"Translation service error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
     except Exception as e:
         error_message = str(e)
-        if lang != 'en':
-            error_message = translate_text(error_message, lang)
-        return jsonify({'error': error_message}), 500
+        logger.error(f"Unexpected error: {error_message}")
+        if lang != "en":
+            error_message = translation_service.translate(error_message, lang)
+        return jsonify({"error": error_message}), 500
 
-def generate_analysis_summary(info, history, lang):
+
+@app.route("/api/analyze-multi", methods=["POST"])
+def analyze_multi():
+    """
+    여러 기업 주요 지표 비교 API
+    ---
+    parameters:
+      - name: symbols
+        in: body
+        type: array
+        required: true
+        description: 분석할 회사 심볼 리스트
+      - name: period
+        in: body
+        type: string
+        required: false
+        default: 1y
+        description: 주가 히스토리 기간(예: 1mo, 3mo, 6mo, 1y, 3y)
+    responses:
+      200:
+        description: 분석 결과 리스트
+        schema:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                type: object
+                properties:
+                  symbol:
+                    type: string
+                  name:
+                    type: string
+                  Market Cap:
+                    type: integer
+                  Trailing P/E:
+                    type: number
+                  Forward P/E:
+                    type: number
+                  Profit Margin:
+                    type: number
+                  Operating Margin:
+                    type: number
+                  Revenue Growth:
+                    type: number
+                  Dividend Yield:
+                    type: number
+      400:
+        description: 잘못된 요청
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+      500:
+        description: 서버 오류
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+    """
     try:
-        # Calculate basic metrics
-        current_price = history['Close'][-1]
-        price_change = ((current_price - history['Close'][0]) / history['Close'][0]) * 100
-        
-        summary = f"{'Company shows ' if lang == 'en' else ''}"
-        
-        # Analyze price trend
-        if price_change > 0:
-            trend = f"positive growth of {price_change:.1f}%" if lang == 'en' else f"{price_change:.1f}% 상승"
-        else:
-            trend = f"decline of {abs(price_change):.1f}%" if lang == 'en' else f"{abs(price_change):.1f}% 하락"
-        
-        summary += trend
-        
-        return translate_text(summary, lang)
-    except:
-        return translate_text("Unable to generate analysis summary", lang)
+        req = request.get_json()
+        symbols = req.get("symbols", [])
+        period = req.get("period", "1y")
+        if not symbols or not isinstance(symbols, list):
+            return jsonify({"error": "symbols 파라미터가 필요합니다."}), 400
+        results = []
+        for symbol in symbols:
+            try:
+                analysis = company_service.analyze_company(symbol, period=period)
+                results.append(
+                    {
+                        "symbol": symbol,
+                        "name": analysis.get("Company Description", "")[:40],
+                        "Market Cap": analysis.get("Market Cap", "N/A"),
+                        "Trailing P/E": analysis.get("Trailing P/E", "N/A"),
+                        "Forward P/E": analysis.get("Forward P/E", "N/A"),
+                        "Profit Margin": analysis.get("Profit Margin", "N/A"),
+                        "Operating Margin": analysis.get("Operating Margin", "N/A"),
+                        "Revenue Growth": analysis.get("Revenue Growth", "N/A"),
+                        "Dividend Yield": analysis.get("Dividend Yield", "N/A"),
+                    }
+                )
+            except Exception as e:
+                results.append({"symbol": symbol, "error": str(e)})
+        return jsonify({"data": results}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app.run(debug=True)

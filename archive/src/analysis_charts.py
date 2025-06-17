@@ -1,28 +1,30 @@
 import json
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
 from datetime import datetime
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
 # 한글 폰트 설정
-plt.rcParams['font.family'] = 'Malgun Gothic'
-plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams["font.family"] = "Malgun Gothic"
+plt.rcParams["axes.unicode_minus"] = False
 
 # JSON 데이터 로드
-with open('company_data_20241128_221849.json', 'r') as f:
+with open("company_data_20241128_221849.json", "r") as f:
     data = json.load(f)
+
 
 # 데이터 전처리 함수
 def clean_numeric(value):
     if isinstance(value, str):
-        value = value.replace('$', '').replace(',', '').replace('%', '')
-        if 'T' in value:
-            value = float(value.replace('T', '')) * 1e12
-        elif 'B' in value:
-            value = float(value.replace('B', '')) * 1e9
-        elif 'M' in value:
-            value = float(value.replace('M', '')) * 1e6
+        value = value.replace("$", "").replace(",", "").replace("%", "")
+        if "T" in value:
+            value = float(value.replace("T", "")) * 1e12
+        elif "B" in value:
+            value = float(value.replace("B", "")) * 1e9
+        elif "M" in value:
+            value = float(value.replace("M", "")) * 1e6
         else:
             try:
                 value = float(value)
@@ -30,55 +32,60 @@ def clean_numeric(value):
                 value = None
     return value
 
+
 # 주요 지표 추출
 metrics = {
-    'Market Cap': [],
-    'Revenue (TTM)': [],
-    'Operating Margin': [],
-    'P/E Ratio': [],
-    'Total Cash': [],
-    'Total Debt': [],
-    'ROE': []
+    "Market Cap": [],
+    "Revenue (TTM)": [],
+    "Operating Margin": [],
+    "P/E Ratio": [],
+    "Total Cash": [],
+    "Total Debt": [],
+    "ROE": [],
 }
 
 companies = []
 for company, company_data in data.items():
     companies.append(company)
-    metrics['Market Cap'].append(clean_numeric(company_data.get('Market Cap')))
-    metrics['Revenue (TTM)'].append(clean_numeric(company_data.get('Revenue  (ttm)')))
-    metrics['Operating Margin'].append(clean_numeric(company_data.get('Operating Margin  (ttm)').replace('%', '')))
-    metrics['P/E Ratio'].append(clean_numeric(company_data.get('Trailing P/E')))
-    metrics['Total Cash'].append(clean_numeric(company_data.get('Total Cash  (mrq)')))
-    metrics['Total Debt'].append(clean_numeric(company_data.get('Total Debt  (mrq)')))
-    metrics['ROE'].append(clean_numeric(company_data.get('Return on Equity  (ttm)').replace('%', '')))
+    metrics["Market Cap"].append(clean_numeric(company_data.get("Market Cap")))
+    metrics["Revenue (TTM)"].append(clean_numeric(company_data.get("Revenue  (ttm)")))
+    metrics["Operating Margin"].append(
+        clean_numeric(company_data.get("Operating Margin  (ttm)").replace("%", ""))
+    )
+    metrics["P/E Ratio"].append(clean_numeric(company_data.get("Trailing P/E")))
+    metrics["Total Cash"].append(clean_numeric(company_data.get("Total Cash  (mrq)")))
+    metrics["Total Debt"].append(clean_numeric(company_data.get("Total Debt  (mrq)")))
+    metrics["ROE"].append(
+        clean_numeric(company_data.get("Return on Equity  (ttm)").replace("%", ""))
+    )
 
 df = pd.DataFrame(metrics, index=companies)
 
 # 1. 시가총액 비교
 plt.figure(figsize=(12, 6))
-plt.bar(companies, df['Market Cap'] / 1e12)
-plt.title('기업별 시가총액 (조 달러)')
+plt.bar(companies, df["Market Cap"] / 1e12)
+plt.title("기업별 시가총액 (조 달러)")
 plt.xticks(rotation=45)
-plt.ylabel('시가총액 (조 달러)')
-plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.ylabel("시가총액 (조 달러)")
+plt.grid(axis="y", linestyle="--", alpha=0.7)
 plt.tight_layout()
-plt.savefig('market_cap_comparison.png')
+plt.savefig("market_cap_comparison.png")
 plt.close()
 
 # 2. 주요 재무비율 비교
 plt.figure(figsize=(12, 6))
-metrics_to_plot = ['Operating Margin', 'ROE']
+metrics_to_plot = ["Operating Margin", "ROE"]
 x = np.arange(len(companies))
 width = 0.35
 
-plt.bar(x - width/2, df['Operating Margin'], width, label='영업이익률 (%)')
-plt.bar(x + width/2, df['ROE'], width, label='자기자본이익률 (%)')
-plt.title('기업별 수익성 지표 비교')
+plt.bar(x - width / 2, df["Operating Margin"], width, label="영업이익률 (%)")
+plt.bar(x + width / 2, df["ROE"], width, label="자기자본이익률 (%)")
+plt.title("기업별 수익성 지표 비교")
 plt.xticks(x, companies, rotation=45)
 plt.legend()
-plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.grid(axis="y", linestyle="--", alpha=0.7)
 plt.tight_layout()
-plt.savefig('profitability_comparison.png')
+plt.savefig("profitability_comparison.png")
 plt.close()
 
 # 3. 현금 및 부채 비교
@@ -86,25 +93,25 @@ plt.figure(figsize=(12, 6))
 width = 0.35
 x = np.arange(len(companies))
 
-plt.bar(x - width/2, df['Total Cash'] / 1e9, width, label='현금 보유액')
-plt.bar(x + width/2, df['Total Debt'] / 1e9, width, label='총 부채')
-plt.title('기업별 현금 및 부채 비교 (십억 달러)')
+plt.bar(x - width / 2, df["Total Cash"] / 1e9, width, label="현금 보유액")
+plt.bar(x + width / 2, df["Total Debt"] / 1e9, width, label="총 부채")
+plt.title("기업별 현금 및 부채 비교 (십억 달러)")
 plt.xticks(x, companies, rotation=45)
 plt.legend()
-plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.grid(axis="y", linestyle="--", alpha=0.7)
 plt.tight_layout()
-plt.savefig('cash_debt_comparison.png')
+plt.savefig("cash_debt_comparison.png")
 plt.close()
 
 # 4. P/E 비율 비교
 plt.figure(figsize=(12, 6))
-plt.bar(companies, df['P/E Ratio'])
-plt.title('기업별 P/E 비율')
+plt.bar(companies, df["P/E Ratio"])
+plt.title("기업별 P/E 비율")
 plt.xticks(rotation=45)
-plt.ylabel('P/E Ratio')
-plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.ylabel("P/E Ratio")
+plt.grid(axis="y", linestyle="--", alpha=0.7)
 plt.tight_layout()
-plt.savefig('pe_ratio_comparison.png')
+plt.savefig("pe_ratio_comparison.png")
 plt.close()
 
 # 상세 분석 리포트 생성
@@ -198,7 +205,7 @@ report = f"""# 빅테크 기업 상세 재무 분석 리포트 ({datetime.now().
 """
 
 # 리포트 저장
-with open('detailed_tech_analysis_kr.md', 'w', encoding='utf-8') as f:
+with open("detailed_tech_analysis_kr.md", "w", encoding="utf-8") as f:
     f.write(report)
 
 print("분석 완료! 차트 이미지와 상세 분석 리포트가 생성되었습니다.")

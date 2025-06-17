@@ -1,27 +1,29 @@
 import json
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
 from datetime import datetime
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
 # 한글 폰트 설정
-plt.rcParams['font.family'] = 'Malgun Gothic'
-plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams["font.family"] = "Malgun Gothic"
+plt.rcParams["axes.unicode_minus"] = False
 
 # JSON 데이터 로드
-with open('company_data_20241128_221849.json', 'r') as f:
+with open("company_data_20241128_221849.json", "r") as f:
     data = json.load(f)
+
 
 def clean_numeric(value):
     if isinstance(value, str):
-        value = value.replace('$', '').replace(',', '').replace('%', '')
-        if 'T' in value:
-            value = float(value.replace('T', '')) * 1e12
-        elif 'B' in value:
-            value = float(value.replace('B', '')) * 1e9
-        elif 'M' in value:
-            value = float(value.replace('M', '')) * 1e6
+        value = value.replace("$", "").replace(",", "").replace("%", "")
+        if "T" in value:
+            value = float(value.replace("T", "")) * 1e12
+        elif "B" in value:
+            value = float(value.replace("B", "")) * 1e9
+        elif "M" in value:
+            value = float(value.replace("M", "")) * 1e6
         else:
             try:
                 value = float(value)
@@ -29,45 +31,54 @@ def clean_numeric(value):
                 value = None
     return value
 
+
 # 데이터 전처리 및 DataFrame 생성
-df = pd.DataFrame.from_dict(data, orient='index')
+df = pd.DataFrame.from_dict(data, orient="index")
 
 # 주요 재무 지표 정리
 financial_metrics = pd.DataFrame(index=df.index)
-financial_metrics['시가총액'] = df['Market Cap'].apply(clean_numeric)
-financial_metrics['매출액'] = df['Revenue  (ttm)'].apply(clean_numeric)
-financial_metrics['영업이익률'] = df['Operating Margin  (ttm)'].apply(lambda x: clean_numeric(x.replace('%', '')))
-financial_metrics['순이익률'] = df['Profit Margin'].apply(lambda x: clean_numeric(x.replace('%', '')))
-financial_metrics['ROE'] = df['Return on Equity  (ttm)'].apply(lambda x: clean_numeric(x.replace('%', '')))
-financial_metrics['현금성자산'] = df['Total Cash  (mrq)'].apply(clean_numeric)
-financial_metrics['부채'] = df['Total Debt  (mrq)'].apply(clean_numeric)
-financial_metrics['PER'] = df['Trailing P/E'].apply(clean_numeric)
-financial_metrics['매출성장률'] = df['Quarterly Revenue Growth  (yoy)'].apply(lambda x: clean_numeric(x.replace('%', '')))
+financial_metrics["시가총액"] = df["Market Cap"].apply(clean_numeric)
+financial_metrics["매출액"] = df["Revenue  (ttm)"].apply(clean_numeric)
+financial_metrics["영업이익률"] = df["Operating Margin  (ttm)"].apply(
+    lambda x: clean_numeric(x.replace("%", ""))
+)
+financial_metrics["순이익률"] = df["Profit Margin"].apply(
+    lambda x: clean_numeric(x.replace("%", ""))
+)
+financial_metrics["ROE"] = df["Return on Equity  (ttm)"].apply(
+    lambda x: clean_numeric(x.replace("%", ""))
+)
+financial_metrics["현금성자산"] = df["Total Cash  (mrq)"].apply(clean_numeric)
+financial_metrics["부채"] = df["Total Debt  (mrq)"].apply(clean_numeric)
+financial_metrics["PER"] = df["Trailing P/E"].apply(clean_numeric)
+financial_metrics["매출성장률"] = df["Quarterly Revenue Growth  (yoy)"].apply(
+    lambda x: clean_numeric(x.replace("%", ""))
+)
 
 # 1. 종합 재무 분석 차트
 plt.figure(figsize=(15, 10))
 plt.subplot(2, 2, 1)
-sns.barplot(x=financial_metrics.index, y=financial_metrics['시가총액']/1e12)
-plt.title('시가총액 (조 달러)')
+sns.barplot(x=financial_metrics.index, y=financial_metrics["시가총액"] / 1e12)
+plt.title("시가총액 (조 달러)")
 plt.xticks(rotation=45)
 
 plt.subplot(2, 2, 2)
-sns.barplot(x=financial_metrics.index, y=financial_metrics['매출성장률'])
-plt.title('매출 성장률 (%)')
+sns.barplot(x=financial_metrics.index, y=financial_metrics["매출성장률"])
+plt.title("매출 성장률 (%)")
 plt.xticks(rotation=45)
 
 plt.subplot(2, 2, 3)
-sns.barplot(x=financial_metrics.index, y=financial_metrics['영업이익률'])
-plt.title('영업이익률 (%)')
+sns.barplot(x=financial_metrics.index, y=financial_metrics["영업이익률"])
+plt.title("영업이익률 (%)")
 plt.xticks(rotation=45)
 
 plt.subplot(2, 2, 4)
-sns.barplot(x=financial_metrics.index, y=financial_metrics['ROE'])
-plt.title('자기자본이익률 (%)')
+sns.barplot(x=financial_metrics.index, y=financial_metrics["ROE"])
+plt.title("자기자본이익률 (%)")
 plt.xticks(rotation=45)
 
 plt.tight_layout()
-plt.savefig('comprehensive_financial_analysis.png')
+plt.savefig("comprehensive_financial_analysis.png")
 plt.close()
 
 # 2. 효율성 및 수익성 분석
@@ -75,22 +86,22 @@ plt.figure(figsize=(15, 5))
 x = np.arange(len(financial_metrics.index))
 width = 0.35
 
-plt.bar(x - width/2, financial_metrics['영업이익률'], width, label='영업이익률')
-plt.bar(x + width/2, financial_metrics['순이익률'], width, label='순이익률')
-plt.title('수익성 지표 비교')
+plt.bar(x - width / 2, financial_metrics["영업이익률"], width, label="영업이익률")
+plt.bar(x + width / 2, financial_metrics["순이익률"], width, label="순이익률")
+plt.title("수익성 지표 비교")
 plt.xticks(x, financial_metrics.index, rotation=45)
 plt.legend()
 plt.tight_layout()
-plt.savefig('profitability_analysis.png')
+plt.savefig("profitability_analysis.png")
 plt.close()
 
 # 3. 밸류에이션 분석
 plt.figure(figsize=(15, 5))
-plt.bar(financial_metrics.index, financial_metrics['PER'])
-plt.title('PER (주가수익비율) 비교')
+plt.bar(financial_metrics.index, financial_metrics["PER"])
+plt.title("PER (주가수익비율) 비교")
 plt.xticks(rotation=45)
 plt.tight_layout()
-plt.savefig('valuation_analysis.png')
+plt.savefig("valuation_analysis.png")
 plt.close()
 
 # 4. 재무안정성 분석
@@ -98,13 +109,13 @@ plt.figure(figsize=(15, 5))
 x = np.arange(len(financial_metrics.index))
 width = 0.35
 
-plt.bar(x - width/2, financial_metrics['현금성자산']/1e9, width, label='현금성자산')
-plt.bar(x + width/2, financial_metrics['부채']/1e9, width, label='부채')
-plt.title('재무안정성 지표 (십억 달러)')
+plt.bar(x - width / 2, financial_metrics["현금성자산"] / 1e9, width, label="현금성자산")
+plt.bar(x + width / 2, financial_metrics["부채"] / 1e9, width, label="부채")
+plt.title("재무안정성 지표 (십억 달러)")
 plt.xticks(x, financial_metrics.index, rotation=45)
 plt.legend()
 plt.tight_layout()
-plt.savefig('financial_stability.png')
+plt.savefig("financial_stability.png")
 plt.close()
 
 # 상세 분석 리포트 생성
@@ -316,7 +327,7 @@ report = f"""# 빅테크 기업 종합 재무 분석 리포트 ({datetime.now().
 """
 
 # 리포트 저장
-with open('comprehensive_tech_analysis_kr.md', 'w', encoding='utf-8') as f:
+with open("comprehensive_tech_analysis_kr.md", "w", encoding="utf-8") as f:
     f.write(report)
 
 print("종합 분석 완료! 차트 이미지와 상세 분석 리포트가 생성되었습니다.")
