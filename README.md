@@ -1,78 +1,94 @@
-# Profitable Company Analyzer
+# Profitable Company Scraper
 
-A web application that helps analyze publicly traded companies using real-time financial data and multi-language support.
+A web application that helps users analyze company profitability and financial health using Yahoo Finance data. The application provides stock analysis, financial metrics, and translated summaries in multiple languages.
 
 ## Features
 
-- Real-time company search and financial data analysis
+- Company search functionality
+- Real-time stock data analysis
+- Financial health assessment
+- Multi-language support (English and Korean)
 - Interactive stock price charts
-- Multi-language support (English, Korean, Japanese, Chinese, Spanish, French, German)
-- Comprehensive financial metrics and analysis
-- Mobile-responsive design
+- Key financial metrics display
 
-## Deployment
+## Project Structure
 
-The application is split into two parts:
+```
+profitable-company-scraper/
+├── api/                    # Main application backend
+│   └── index.py           # Flask API endpoints and business logic
+├── docs/                  # Frontend assets and documentation
+│   └── js/               # JavaScript files for frontend
+├── templates/            # HTML templates
+│   └── index.html        # Main application page
+├── data/                 # Data storage directory
+├── requirements.txt      # Python dependencies
+├── render.yaml           # Render deployment configuration
+└── vercel.json          # Vercel configuration (alternative deployment)
+```
 
-1. Frontend (GitHub Pages)
-   - Static website hosted on GitHub Pages
-   - Located in the `/docs` directory
+## Technology Stack
 
-2. Backend (Vercel)
-   - Flask API hosted on Vercel
-   - Located in the `/api` directory
+- Backend: Python Flask
+- Frontend: HTML, JavaScript
+- APIs: Yahoo Finance (yfinance)
+- Translation: Google Translate
+- Deployment: Render
 
-### Setup Instructions
+## Dependencies
 
-1. Deploy the Backend (Vercel):
-   ```bash
-   npm install -g vercel
-   vercel login
-   vercel
-   ```
+```
+flask==3.0.0
+flask-cors==4.0.0
+yfinance==0.2.31
+googletrans==3.1.0a0
+numpy==1.24.3
+requests==2.31.0
+python-dotenv==1.0.0
+gunicorn==21.2.0
+```
 
-2. Update Frontend Configuration:
-   - Get your Vercel deployment URL
-   - Update `docs/js/config.js` with your Vercel URL
+## Installation
 
-3. Deploy Frontend (GitHub Pages):
-   - Push your changes to GitHub
-   - Go to repository Settings > Pages
-   - Set source branch to `main` and folder to `/docs`
+1. Clone the repository:
+```bash
+git clone https://github.com/cskwork/profitable-company-scraper.git
+cd profitable-company-scraper
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the application:
+```bash
+python api/index.py
+```
+
+## Usage
+
+1. Access the application through your web browser
+2. Enter a company stock symbol or name in the search bar
+3. View detailed financial analysis and metrics
+4. Toggle between languages using the language selector
+
+## Live Demo
+
+The application is deployed and accessible at:
+[Render Deployment](https://profitable-company-scraper.onrender.com)
 
 ## Development
 
-### Prerequisites
-- Python 3.10+
-- Node.js and npm (for Vercel CLI)
+The main application code is in `api/index.py`, which handles:
+- Company search and data retrieval
+- Financial analysis and calculations
+- Multi-language support
+- API endpoints for frontend interaction
 
-### Local Development
-1. Install backend dependencies:
-   ```bash
-   cd api
-   pip install -r requirements.txt
-   ```
+## Archive
 
-2. Run the Flask development server:
-   ```bash
-   python index.py
-   ```
-
-3. Open `docs/index.html` in your browser
-
-## Technologies Used
-
-- Frontend:
-  - HTML5, CSS3, JavaScript
-  - Bootstrap 5
-  - Plotly.js
-  - jQuery
-
-- Backend:
-  - Python Flask
-  - yfinance
-  - googletrans
-  - pandas
+Previous versions and unused components are stored in the `archive/` directory for reference.
 
 ## License
 
