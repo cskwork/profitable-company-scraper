@@ -57,16 +57,31 @@ class CompanyService:
             try:
                 ticker = yf.Ticker(symbol)
                 info = ticker.info
+
+                # info가 비어있거나 에러가 있는지 확인
+                if not info or "regularMarketPrice" not in info:
+                    raise CompanyServiceError(f"유효하지 않은 심볼: {symbol}")
+
                 history = ticker.history(period=period)
                 return {"info": info, "history": history}
             except Exception as e:
+                error_str = str(e)
                 # 429 에러 감지 시 재시도
-                if "429" in str(e) and attempt < max_retries - 1:
-                    time.sleep(2)
-                    continue
+                if "429" in error_str or "rate limit" in error_str.lower():
+                    if attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 5  # 5초, 10초, 15초 대기
+                        time.sleep(wait_time)
+                        continue
+                # JSON 파싱 에러 처리
+                elif "Expecting value" in error_str:
+                    if attempt < max_retries - 1:
+                        time.sleep(3)
+                        continue
                 # 한국어 안내 메시지 포함
                 raise CompanyServiceError(
-                    f"회사 정보 조회 실패: {str(e)} (야후 파이낸스 요청 제한(429)일 수 있습니다. 잠시 후 다시 시도해 주세요.)"
+                    f"회사 정보 조회 실패: {str(e)} "
+                    f"(야후 파이낸스 요청 제한(429)일 수 있습니다. "
+                    f"잠시 후 다시 시도해 주세요.)"
                 )
 
     @lru_cache(maxsize=100)

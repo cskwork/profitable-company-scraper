@@ -3,14 +3,14 @@
 """
 
 import logging
+import os
 
 from flasgger import Swagger
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 from .services.company_service import CompanyService, CompanyServiceError
-from .services.translation_service import (TranslationService,
-                                           TranslationServiceError)
+from .services.translation_service import TranslationService, TranslationServiceError
 
 app = Flask(__name__)
 CORS(app)
@@ -329,5 +329,18 @@ def analyze_multi():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/")
+def home():
+    """홈페이지 리다이렉트"""
+    return send_from_directory("../docs", "index.html")
+
+
+@app.route("/docs/<path:path>")
+def serve_docs(path):
+    """정적 파일 제공"""
+    docs_path = os.path.join(os.path.dirname(__file__), "..", "docs")
+    return send_from_directory(docs_path, path)
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
