@@ -7,9 +7,10 @@ import logging
 from flasgger import Swagger
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from services.company_service import CompanyService, CompanyServiceError
-from services.translation_service import (TranslationService,
-                                          TranslationServiceError)
+
+from .services.company_service import CompanyService, CompanyServiceError
+from .services.translation_service import (TranslationService,
+                                           TranslationServiceError)
 
 app = Flask(__name__)
 CORS(app)
@@ -98,8 +99,10 @@ def search_company():
 
     try:
         results = company_service.search_companies(query)
-        if lang != "en":
-            results = translation_service.translate_dict(results, lang)
+        if lang != "en" and results:
+            results = [
+                translation_service.translate_dict(item, lang) for item in results
+            ]
         logger.info(f"Search successful: {len(results)} results found")
         return jsonify({"data": results}), 200
     except CompanyServiceError as e:
@@ -115,7 +118,8 @@ def search_company():
             return (
                 jsonify(
                     {
-                        "error": "Service is temporarily unavailable due to high demand. Please try again in a few minutes."
+                        "error": "Service is temporarily unavailable due to high"
+                        " demand. Please try again in a few minutes."
                     }
                 ),
                 429,
@@ -221,6 +225,16 @@ def analyze_company(symbol):
         logger.error(f"Unexpected error: {error_message}")
         if lang != "en":
             error_message = translation_service.translate(error_message, lang)
+        if "resource_exhausted" in error_message.lower():
+            return (
+                jsonify(
+                    {
+                        "error": "Service is temporarily unavailable due to high"
+                        " demand. Please try again in a few minutes."
+                    }
+                ),
+                429,
+            )
         return jsonify({"error": error_message}), 500
 
 
