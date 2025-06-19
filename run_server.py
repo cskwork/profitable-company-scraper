@@ -5,6 +5,10 @@ Flask 서버 실행 스크립트
 import os
 import sys
 
+from dotenv import load_dotenv
+
+from api.index import create_app
+
 
 # 가상환경 확인
 def check_virtual_env():
@@ -34,7 +38,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 if __name__ == "__main__":
     check_virtual_env()
 
-    from api.index import app
+    load_dotenv()
+
+    app = create_app()
 
     print("\n🚀 Flask 서버를 시작합니다...")
     print("📍 접속 주소: http://localhost:5000")
@@ -42,4 +48,6 @@ if __name__ == "__main__":
     print("📍 웹 UI: http://localhost:5000/docs/index.html")
     print("\n종료하려면 Ctrl+C를 누르세요.")
 
-    app.run(host="0.0.0.0", port=5000)
+    from waitress import serve
+
+    serve(app, host="0.0.0.0", port=5000)

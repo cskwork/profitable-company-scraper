@@ -81,6 +81,16 @@ echo.
 echo ✅ 모든 패키지 설치 완료
 echo.
 
+echo.
+echo ⚠️  중요: Financial Modeling Prep API 키를 설정해야 합니다.
+echo    1. https://site.financialmodelingprep.com/developer/docs/dashboard 에서 API 키를 발급받으세요.
+echo    2. 프로젝트 루트에 .env 파일을 생성하고 다음 내용을 추가하세요:
+echo       FMP_API_KEY=YOUR_API_KEY
+echo.
+echo    (여기서 YOUR_API_KEY를 발급받은 키로 변경하세요.)
+echo.
+pause
+
 :: 설치 완료
 echo ╔════════════════════════════════════════════════════╗
 echo ║              🎉 설치가 완료되었습니다! 🎉           ║
