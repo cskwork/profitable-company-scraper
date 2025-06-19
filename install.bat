@@ -78,7 +78,16 @@ if errorlevel 1 (
     echo ⚠️  개발 패키지 설치 실패 (선택사항)
 )
 echo.
-echo ✅ 모든 패키지 설치 완료
+echo 🌐 Playwright 브라우저 설치 중...
+playwright install
+if errorlevel 1 (
+    echo ❌ Playwright 브라우저 설치 실패!
+    pause
+    exit /b 1
+)
+echo ✅ Playwright 브라우저 설치 완료!
+echo.
+echo ✨ 모든 설치가 완료되었습니다!
 echo.
 
 echo.

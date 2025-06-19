@@ -1,8 +1,6 @@
-flask==3.0.0
-flask-cors==4.0.0
+playwright
+beautifulsoup4
+ollama
+pandas
 requests
-googletrans==4.0.0-rc1
-flasgger
-gunicorn==21.2.0
-python-dotenv==1.0.0
-waitress==2.1.2
+python-dotenv

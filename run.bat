@@ -2,7 +2,7 @@
 chcp 65001 > nul
 echo.
 echo ╔════════════════════════════════════════════════════╗
-echo ║   Profitable Company Scraper - 서버 실행           ║
+echo ║   Financial Research Agent - 실행기              ║
 echo ╚════════════════════════════════════════════════════╝
 echo.
 
@@ -25,22 +25,23 @@ if errorlevel 1 (
 echo ✅ 가상환경 활성화 완료
 echo.
 
-:: 서버 실행
-echo 🚀 Flask 서버를 시작합니다...
-echo ════════════════════════════════════════════════════
-echo.
-echo 📍 접속 주소:
-echo   - 웹 UI: http://localhost:5000/docs/index.html
-echo   - API 문서: http://localhost:5000/apidocs
-echo.
-echo 💡 서버를 종료하려면 Ctrl+C를 누르세요.
+:: 사용자에게 Ticker 심볼 입력받기
+set /p symbol="📈 분석할 회사의 Ticker 심볼을 입력하세요 (예: AAPL, MSFT): "
+
+if not defined symbol (
+    echo ❌ 심볼이 입력되지 않았습니다. 스크립트를 종료합니다.
+    pause
+    exit /b 1
+)
+
+:: Agent 실행
+echo 🚀 Agent를 시작합니다...
 echo ════════════════════════════════════════════════════
 echo.
 
-:: 서버 실행 (가상환경 내에서)
-python run_server.py
+python agent/run.py %symbol%
 
-:: 서버 종료 후 메시지
 echo.
-echo 서버가 종료되었습니다.
+echo ════════════════════════════════════════════════════
+echo ✅ 분석이 완료되었습니다.
 pause 
